@@ -51,17 +51,18 @@ public class JournalEntryController {
         return journalEntryservice.findById(myId);
     }
 
-    @DeleteMapping("/id/{username}/{myId}")
-    public JournalEntry deleteEntryById(@PathVariable ObjectId myId,@PathVariable String username){
-        User user = userService.findByUserName(username);
+    @DeleteMapping("/id/{myId}")
+    public JournalEntry deleteEntryById(@PathVariable ObjectId myId){
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user  = userService.findByUserName(authentication.getName());
         user.getJournalEntries().removeIf(x -> x.getId().equals(myId));
         userService.saveEntry(user);
         journalEntryservice.deleteById(myId);
         return null;
     }
 
-    @PutMapping("/id/{username}/{myId}")
-    public ResponseEntity<?> updateEntryById(@PathVariable String username,@PathVariable ObjectId myId, @RequestBody JournalEntry newEntry){
+    @PutMapping("/id/{myId}")
+    public ResponseEntity<?> updateEntryById(@PathVariable ObjectId myId, @RequestBody JournalEntry newEntry){
         JournalEntry old = journalEntryservice.findById(myId);
         if(old != null) {
             old.setTitle(newEntry.getTitle() != null && !newEntry.getTitle().equals("") ? newEntry.getTitle() : old.getTitle());
