@@ -1,45 +1,74 @@
 package net.engineeringdigest.journalApp.controller;
 
 import net.engineeringdigest.journalApp.entity.JournalEntry;
+import net.engineeringdigest.journalApp.entity.User;
+import net.engineeringdigest.journalApp.service.JournalEntryService;
+import net.engineeringdigest.journalApp.service.UserService;
 import org.bson.types.ObjectId;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
-@RequestMapping("_/Journal")
+@RequestMapping("/Journal")
 public class JournalEntryController {
-    private Map<ObjectId, JournalEntry> journalEntries = new HashMap<>();
+
+    @Autowired
+     private JournalEntryService journalEntryservice;
+
+    @Autowired
+    private UserService userService;
 
     @GetMapping
-    public List<JournalEntry> getAll(){
-        return new ArrayList<>(journalEntries.values());
+    public ResponseEntity<?> getAllJournalEntiresOfUser(){
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user  = userService.findByUserName(authentication.getName());
+        List<JournalEntry> all = user.getJournalEntries();
+        if(all!=null && !all.isEmpty()) {
+            return new ResponseEntity<>(all, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
     @PostMapping
-    public boolean createEntry(@RequestBody JournalEntry entry){
-        journalEntries.put(entry.getId(), entry);
-        return true;
+    public ResponseEntity<JournalEntry> createEntry(@RequestBody JournalEntry myEntry){
+        try{
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            journalEntryservice.saveEntry(myEntry,authentication.getName());
+            return new ResponseEntity<>(myEntry, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
     }
 
     @GetMapping("/id/{myId}")
     public JournalEntry getEntryById(@PathVariable ObjectId myId){
-        return journalEntries.get(myId);
-    }
-    @DeleteMapping("/id/{myId}")
-    public JournalEntry deleteEntryById(@PathVariable ObjectId myId){
-        return journalEntries.remove(myId);
+        return journalEntryservice.findById(myId);
     }
 
-    @PutMapping("/id/{myId}")
-    public JournalEntry updateEntryById(@PathVariable ObjectId myId, @RequestBody JournalEntry updatedEntry){
-        if(journalEntries.containsKey(myId)){
-            journalEntries.put(myId, updatedEntry);
-            return updatedEntry;
-        }
+    @DeleteMapping("/id/{username}/{myId}")
+    public JournalEntry deleteEntryById(@PathVariable ObjectId myId,@PathVariable String username){
+        User user = userService.findByUserName(username);
+        user.getJournalEntries().removeIf(x -> x.getId().equals(myId));
+        userService.saveEntry(user);
+        journalEntryservice.deleteById(myId);
         return null;
+    }
+
+    @PutMapping("/id/{username}/{myId}")
+    public ResponseEntity<?> updateEntryById(@PathVariable String username,@PathVariable ObjectId myId, @RequestBody JournalEntry newEntry){
+        JournalEntry old = journalEntryservice.findById(myId);
+        if(old != null) {
+            old.setTitle(newEntry.getTitle() != null && !newEntry.getTitle().equals("") ? newEntry.getTitle() : old.getTitle());
+            old.setContent(newEntry.getContent() != null && !newEntry.getContent().equals("") ? newEntry.getContent() : old.getContent());
+            journalEntryservice.saveEntry(old);
+            return new ResponseEntity<>(old, HttpStatus.OK);
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 }
