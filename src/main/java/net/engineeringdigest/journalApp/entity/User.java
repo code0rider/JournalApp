@@ -1,5 +1,6 @@
 package net.engineeringdigest.journalApp.entity;
 
+import com.mongodb.connection.ProxySettings;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
@@ -26,4 +27,10 @@ public class User{
     @DBRef
     private List<JournalEntry> journalEntries = new ArrayList<>();
     private List<String> roles;
+
+    public User(String sita, String password, List<String> user) {
+        this.username = sita;
+        this.password = password;
+        this.roles = user;
+    }
 }
